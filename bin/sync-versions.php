@@ -55,7 +55,7 @@ $log = static function (string $message, bool $isError = false) use ($quiet): vo
     }
 };
 
-foreach ([SVGTEST_STORAGE_DIR, SVGTEST_VERSIONS_DIR] as $directory) {
+foreach ([SVGTEST_STORAGE_DIR, SVGTEST_INSTALL_DIR, SVGTEST_VERSIONS_DIR] as $directory) {
     if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
         fwrite(STDERR, "Cannot create $directory\n");
         exit(1);
@@ -102,6 +102,7 @@ if ($doLock) {
 
         if (isset($options['reinstall']) && !$dryRun) {
             removeDirectory($directory);
+            removeDirectory(VersionRegistry::installPath($version));
             $hasLock = false;
         }
 
@@ -144,6 +145,7 @@ if ($doLock) {
 
             if (!$dryRun) {
                 removeDirectory(SVGTEST_VERSIONS_DIR . '/' . $version);
+                removeDirectory(VersionRegistry::installPath($version));
                 unset($index[$version]);
             }
         }
@@ -171,13 +173,26 @@ if ($versions === []) {
     exit(1);
 }
 
-$entries     = [];
-$installed   = 0;
+$entries      = [];
+$installed    = 0;
 $installLimit = isset($options['limit']) ? max(0, (int) $options['limit']) : null;
 
+$previousEntries = readManifestEntries();
+$previousPhp     = readManifestPhp();
+
+// Probing means starting 49 PHP processes, which is most of a deploy's time.
+// A version that is already installed and already passed on this exact PHP has
+// nothing new to tell us, so only probe what changed. --reprobe forces the lot.
+$reprobeAll = isset($options['reprobe']) || $previousPhp !== PHP_VERSION;
+
+if ($reprobeAll && $previousEntries !== [] && $previousPhp !== PHP_VERSION) {
+    $log(sprintf('PHP changed (%s -> %s), so every version is being re-checked.', $previousPhp ?? 'unknown', PHP_VERSION));
+}
+
 foreach ($versions as $version) {
-    $directory = SVGTEST_VERSIONS_DIR . '/' . $version;
-    $released  = $index[$version]['released'] ?? null;
+    $directory   = SVGTEST_VERSIONS_DIR . '/' . $version;
+    $released    = $index[$version]['released'] ?? null;
+    $freshInstall = false;
 
     if (!is_file(VersionRegistry::autoloadPath($version))) {
         if ($dryRun) {
@@ -194,7 +209,7 @@ foreach ($versions as $version) {
         }
 
         $log(sprintf('  %-8s installing...', $version));
-        $result = installVendor($composer, $directory);
+        $result = installVendor($composer, $version, $directory);
 
         if (!$result['ok']) {
             $log(sprintf('  %-8s INSTALL FAILED: %s', $version, lastLine($result['output'])), true);
@@ -212,9 +227,17 @@ foreach ($versions as $version) {
         }
 
         $installed++;
+        $freshInstall = true;
     }
 
     if ($dryRun) {
+        continue;
+    }
+
+    $previous = $previousEntries[$version] ?? null;
+
+    if (!$reprobeAll && !$freshInstall && $previous !== null && ($previous['installed'] ?? false)) {
+        $entries[] = ['released' => $released] + $previous;
         continue;
     }
 
@@ -242,7 +265,7 @@ if ($dryRun) {
 
 // With --only, versions this run did not touch keep whatever the manifest
 // already said about them rather than vanishing from the site.
-foreach (readManifestEntries() as $version => $entry) {
+foreach ($previousEntries as $version => $entry) {
     $alreadyHandled = false;
 
     foreach ($entries as $handled) {
@@ -423,11 +446,26 @@ function writeLock(string $composer, string $version, string $directory): array
     return ['ok' => is_file($directory . '/composer.lock'), 'output' => $result['output']];
 }
 
-/** @return array{ok:bool,output:string} */
-function installVendor(string $composer, string $directory): array
+/**
+ * Install one version's vendor tree.
+ *
+ * Composer reads the pinned composer.json/composer.lock from the release and
+ * writes the vendor tree into storage instead, which keeps the release
+ * directory to exactly what git put there and lets a zero-downtime deploy share
+ * the installed code between releases.
+ *
+ * @return array{ok:bool,output:string}
+ */
+function installVendor(string $composer, string $version, string $directory): array
 {
     if (!is_file($directory . '/composer.lock')) {
         return ['ok' => false, 'output' => 'no composer.lock committed for this version'];
+    }
+
+    $installPath = VersionRegistry::installPath($version);
+
+    if (!is_dir($installPath) && !mkdir($installPath, 0775, true) && !is_dir($installPath)) {
+        return ['ok' => false, 'output' => 'could not create ' . $installPath];
     }
 
     // No --no-audit here: unlike `update`, the install command does not take it.
@@ -440,13 +478,13 @@ function installVendor(string $composer, string $directory): array
         '--ignore-platform-reqs',
         '--optimize-autoloader',
         '--working-dir=' . $directory,
-    ]);
+    ], 300, ['COMPOSER_VENDOR_DIR' => $installPath . '/vendor']);
 
     if ($result['code'] !== 0) {
         return ['ok' => false, 'output' => $result['output']];
     }
 
-    return ['ok' => is_file($directory . '/vendor/autoload.php'), 'output' => $result['output']];
+    return ['ok' => is_file(VersionRegistry::autoloadPath($version)), 'output' => $result['output']];
 }
 
 /** @return array{compatible:bool,error:?string,features:array<string,bool>,notices:array<int,mixed>} */
@@ -495,14 +533,19 @@ function extractProbePayload(string $output): ?array
 
 /**
  * @param array<int,string> $command
+ * @param array<string,string> $extraEnvironment
  * @return array{code:int,output:string}
  */
-function run(array $command, int $timeout = 300): array
+function run(array $command, int $timeout = 300, array $extraEnvironment = []): array
 {
     $descriptors = [1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
 
     $environment = getenv();
     $environment['COMPOSER_NO_INTERACTION'] = '1';
+
+    foreach ($extraEnvironment as $name => $value) {
+        $environment[$name] = $value;
+    }
 
     if (!isset($environment['COMPOSER_HOME']) && !isset($environment['HOME'])) {
         $environment['COMPOSER_HOME'] = SVGTEST_STORAGE_DIR . '/composer-home';
@@ -597,6 +640,19 @@ function filterRequested(array $versions, array $options): array
     $only = array_map('trim', explode(',', (string) $options['only']));
 
     return array_values(array_intersect($versions, $only));
+}
+
+/** The PHP version the manifest was last built against, if any. */
+function readManifestPhp(): ?string
+{
+    if (!is_readable(MANIFEST_PATH)) {
+        return null;
+    }
+
+    $decoded = json_decode((string) file_get_contents(MANIFEST_PATH), true);
+    $php     = $decoded['php'] ?? null;
+
+    return is_string($php) ? $php : null;
 }
 
 /** @return array<string,array<string,mixed>> */

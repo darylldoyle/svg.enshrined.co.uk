@@ -1,8 +1,5 @@
-# Installed library code. The composer.json and composer.lock for each version
-# are committed; the vendor tree is rebuilt on deploy from those locks.
-/versions/*/vendor/
-
-# Written on each host by bin/sync-versions.php --install.
+# Everything generated on the host: the installed library trees and the manifest
+# the site reads. Under a zero-downtime deploy this is the one shared directory.
 /storage/*
 !/storage/.gitkeep
 

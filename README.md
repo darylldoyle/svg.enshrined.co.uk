@@ -24,12 +24,20 @@ bin/
   sync-versions.php  Discovers, locks, installs and probes library versions
   probe.php          Runs one version in its own process to test it
 samples/           The payloads offered in the sidebar
-versions/          One pinned Composer install per released version
-storage/           Generated manifest (gitignored)
+versions/          Pinned composer.json/composer.lock per release, tracked in git
+storage/           Everything generated on the host (gitignored)
+  versions/<v>/vendor  The installed library code
+  versions.json        The manifest the site reads
 ```
 
-The playground itself has no Composer dependencies. Each *library* version lives
-in its own `versions/<version>/` install, so a request loads exactly one of them.
+The playground itself has no Composer dependencies. Each *library* version is
+installed separately under `storage/versions/`, so a request loads exactly one
+of them.
+
+Composer reads the pinned `composer.json`/`composer.lock` out of `versions/` and
+writes the vendor tree into `storage/`. Keeping the two apart means the checkout
+is only ever what git put there, and a zero-downtime deploy can share one
+directory between releases rather than reinstalling every version each time.
 
 ### Why one version per request
 
@@ -79,21 +87,45 @@ this repository.
 
 1. Create the site with **web directory** `/public`.
 2. Point it at this repository and enable **Quick Deploy**.
-3. Deployment script:
+3. Add `storage` as a **shared (linked) directory** on the site. This is the one
+   piece of state that has to outlive a release — without it every deploy
+   reinstalls all the library versions from scratch.
+4. Deployment script.
+
+   Zero-downtime:
+
+   ```bash
+   $CREATE_RELEASE()
+
+   cd $FORGE_RELEASE_DIRECTORY
+
+   $FORGE_PHP bin/sync-versions.php --install
+
+   $ACTIVATE_RELEASE()
+   ```
+
+   Plain deploys: use `deploy.sh`, or
 
    ```bash
    cd /home/forge/svg.enshrined.co.uk
    git pull origin $FORGE_SITE_BRANCH
    $FORGE_PHP bin/sync-versions.php --install
-   ( flock -w 10 9 || exit 1; echo 'Restarting FPM'; sudo -S service $FORGE_PHP_FPM reload ) 9>/tmp/fpmlock
+   ( flock -w 10 9 || exit 1; sudo -S service $FORGE_PHP_FPM reload ) 9>/tmp/fpmlock
    ```
 
-   `deploy.sh` in this repo does the same thing if you would rather call that.
-4. PHP 8.1 or newer. The first deploy installs every released version at once —
-   a minute or two. If it ever gets cut short, add `--limit=15` and deploy again
-   until it settles; each run picks up where the last one stopped.
+   There is no root `composer install` step in either: the app has no
+   dependencies of its own, and `--install` does the per-version work.
+5. PHP 8.1 or newer. The first deploy installs every released version — about
+   half a minute. Later deploys install only what is new, because `storage` is
+   shared. If a first deploy ever gets cut short, add `--limit=15` and deploy
+   again until it settles; each run picks up where the last stopped.
 
-Nothing needs a database, a queue, or a writable directory beyond `storage/`.
+Never run `--lock` on the server. It writes into the checkout, which leaves the
+working tree dirty and breaks the next `git pull`. Discovery belongs in CI,
+where the result arrives as a commit.
+
+Nothing needs a database or a queue, and `storage/` is the only writable
+directory — written on deploy, read at request time.
 
 ## Running it locally
 

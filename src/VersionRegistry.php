@@ -106,7 +106,13 @@ final class VersionRegistry
     /** Absolute path to a version's Composer autoloader. */
     public static function autoloadPath(string $version): string
     {
-        return SVGTEST_VERSIONS_DIR . '/' . $version . '/vendor/autoload.php';
+        return self::installPath($version) . '/vendor/autoload.php';
+    }
+
+    /** Where a version's vendor tree is installed, outside the release directory. */
+    public static function installPath(string $version): string
+    {
+        return SVGTEST_INSTALL_DIR . '/' . $version;
     }
 
     /**
