@@ -13,6 +13,7 @@ rendered preview, and as the list of issues the XML parser raised.
 public/            Document root — the only directory the web server exposes
   index.php        Page shell; hands versions, samples and defaults to the JS
   api.php          JSON endpoint: sanitize, and diff
+  preview.php      Renders one SVG in an isolated, script-free document
   assets/          One stylesheet, one script, no build step
 src/               Application code, autoloaded from src/bootstrap.php
   Diff.php         Myers line diff with word-level refinement
@@ -126,11 +127,17 @@ with the reason, and the UI greys it out rather than pretending it works.
 
 This is a page that runs hostile SVG on purpose, so a few things are deliberate:
 
-- **Previews are contained.** Both the input and the output render inside an
-  opaque sandboxed iframe with a policy of `default-src 'none'`. Nothing in a
-  preview can run a script, reach this page, or make a request.
-- **Nothing is uploaded.** The SVG is posted as JSON when you hit Sanitize and
-  is never written to disk.
+- **Previews are contained.** Both the input and the output render through
+  `preview.php`, whose policy begins with CSP `sandbox` — an opaque origin with
+  scripts off, enforced however the document is reached — plus `default-src
+  'none'` so nothing in a preview can make a request. The iframe carries its own
+  `sandbox` attribute on top of that.
+
+  It is served from a real URL rather than a `blob:` or `srcdoc:` frame on
+  purpose: those inherit the embedding page's CSP, which would strip the very
+  styles the SVG is meant to be drawn with and make the preview a lie.
+- **There is no upload.** You paste; the SVG is posted when you hit Sanitize or
+  open a preview, and is never written to disk.
 - **The DoS levers are not exposed.** `setAllowHugeFiles`, `useThreshold` and
   `setUseNestingLimit` are fixed at safe values server-side and cannot be set
   from the browser.
