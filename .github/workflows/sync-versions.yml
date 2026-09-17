@@ -1,0 +1,71 @@
+name: Sync sanitizer versions
+
+# Watches Packagist for new releases of enshrined/svg-sanitize and commits the
+# composer.json + composer.lock for anything new. Nothing is downloaded here and
+# nothing is installed on the server outside of a deploy — the commit is the
+# whole handover, and pushing it is what triggers the Forge deploy.
+
+on:
+  schedule:
+    # Four times a day is plenty for a library that ships a few times a year.
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+  repository_dispatch:
+    types: [svg-sanitize-release]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-versions
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: dom, libxml, json
+          tools: composer:v2
+          coverage: none
+
+      - name: Look for new releases
+        id: lock
+        run: php bin/sync-versions.php --lock
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if [ -n "$(git status --porcelain versions/)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "versions<<EOF"
+              git status --porcelain versions/ | awk '{print $2}' | cut -d/ -f2 | sort -u
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add versions/
+          git commit -m "Add svg-sanitize $(echo '${{ steps.changes.outputs.versions }}' | tr '\n' ' ' | sed 's/ $//')"
+          git push
+
+      - name: Summary
+        run: |
+          if [ "${{ steps.changes.outputs.changed }}" = "true" ]; then
+            echo "Locked new versions:" >> "$GITHUB_STEP_SUMMARY"
+            echo '${{ steps.changes.outputs.versions }}' | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No new releases." >> "$GITHUB_STEP_SUMMARY"
+          fi

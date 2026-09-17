@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="300" height="200" viewBox="0 0 300 200">
+    <title>Script injection vectors</title>
+
+    <script type="text/javascript">alert('inline script')</script>
+    <script xlink:href="https://example.com/evil.js"/>
+
+    <rect width="300" height="200" fill="#f4f4f5" onload="alert('onload')"/>
+    <circle cx="80" cy="100" r="45" fill="#0ea5e9" onmouseover="alert('onmouseover')" onclick="alert('onclick')"/>
+    <circle cx="200" cy="100" r="45" fill="#22c55e" ONLOAD="alert('uppercase handler')"/>
+
+    <a href="javascript:alert('javascript href')">javascript: link</a>
+    <a xlink:href="JaVaScRiPt:alert('mixed case')">mixed case scheme</a>
+    <a href="data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==">base64 data URI</a>
+
+    <set attributeName="onload" to="alert('set element')"/>
+    <animate attributeName="href" values="javascript:alert('animate')"/>
+
+    <handler xmlns="http://www.w3.org/2001/xml-events" type="text/javascript">alert('handler')</handler>
+</svg>

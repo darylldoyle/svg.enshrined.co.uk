@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Recursive <use> expansion, the SVG cousin of the billion laughs attack.
+  Each level references the one below it ten times, so rendering the last
+  level asks the renderer for an enormous number of nodes.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="200" height="200">
+    <defs>
+        <rect id="level0" width="10" height="10" fill="#ef4444"/>
+
+        <g id="level1">
+            <use xlink:href="#level0"/><use xlink:href="#level0"/><use xlink:href="#level0"/>
+            <use xlink:href="#level0"/><use xlink:href="#level0"/><use xlink:href="#level0"/>
+            <use xlink:href="#level0"/><use xlink:href="#level0"/><use xlink:href="#level0"/>
+            <use xlink:href="#level0"/>
+        </g>
+
+        <g id="level2">
+            <use xlink:href="#level1"/><use xlink:href="#level1"/><use xlink:href="#level1"/>
+            <use xlink:href="#level1"/><use xlink:href="#level1"/><use xlink:href="#level1"/>
+            <use xlink:href="#level1"/><use xlink:href="#level1"/><use xlink:href="#level1"/>
+            <use xlink:href="#level1"/>
+        </g>
+
+        <g id="level3">
+            <use xlink:href="#level2"/><use xlink:href="#level2"/><use xlink:href="#level2"/>
+            <use xlink:href="#level2"/><use xlink:href="#level2"/><use xlink:href="#level2"/>
+            <use xlink:href="#level2"/><use xlink:href="#level2"/><use xlink:href="#level2"/>
+            <use xlink:href="#level2"/>
+        </g>
+    </defs>
+
+    <use xlink:href="#level3"/>
+    <use xlink:href="external.svg#icon"/>
+    <use xlink:href="https://example.com/external.svg#icon"/>
+</svg>

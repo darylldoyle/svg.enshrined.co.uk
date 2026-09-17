@@ -1,5 +1,26 @@
 {
+    "name": "enshrined/svg-sanitizer-playground",
+    "description": "A playground for enshrined/svg-sanitize: sanitize an SVG, diff the result, and compare behaviour across every released version.",
+    "type": "project",
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "Daryll Doyle",
+            "email": "daryll@enshrined.co.uk"
+        }
+    ],
     "require": {
-        "enshrined/svg-sanitize": "^1"
+        "php": "^8.1",
+        "ext-dom": "*",
+        "ext-libxml": "*",
+        "ext-json": "*"
+    },
+    "scripts": {
+        "lock-versions": "@php bin/sync-versions.php --lock",
+        "install-versions": "@php bin/sync-versions.php --install",
+        "serve": "@php -S 127.0.0.1:8080 -t public"
+    },
+    "config": {
+        "sort-packages": true
     }
 }

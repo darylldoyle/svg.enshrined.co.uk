@@ -1,0 +1,12 @@
+{
+    "require": {
+        "enshrined/svg-sanitize": "0.8.0"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "audit": {
+            "abandoned": "ignore"
+        }
+    },
+    "minimum-stability": "stable"
+}

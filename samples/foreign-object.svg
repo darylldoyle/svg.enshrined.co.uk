@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="200" viewBox="0 0 360 200">
+    <title>foreignObject and embedded markup</title>
+
+    <foreignObject x="10" y="10" width="340" height="180">
+        <body xmlns="http://www.w3.org/1999/xhtml">
+            <p>Ordinary looking HTML inside an SVG.</p>
+            <script>alert('html script inside foreignObject')</script>
+            <img src="x" onerror="alert('img onerror')"/>
+            <iframe src="https://example.com/"></iframe>
+            <form action="https://example.com/steal" method="post">
+                <input name="password" type="password"/>
+            </form>
+        </body>
+    </foreignObject>
+
+    <image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIG9ubG9hZD0iYWxlcnQoMSkiLz4="/>
+    <image xlink:href="https://example.com/tracker.png" xmlns:xlink="http://www.w3.org/1999/xlink"/>
+</svg>

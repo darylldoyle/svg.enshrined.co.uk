@@ -1,0 +1,11 @@
+# Installed library code. The composer.json and composer.lock for each version
+# are committed; the vendor tree is rebuilt on deploy from those locks.
+/versions/*/vendor/
+
+# Written on each host by bin/sync-versions.php --install.
+/storage/*
+!/storage/.gitkeep
+
+.DS_Store
+.idea/
+.vscode/
