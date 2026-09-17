@@ -89,8 +89,9 @@ this repository.
    ```
 
    `deploy.sh` in this repo does the same thing if you would rather call that.
-4. PHP 8.1 or newer. The first deploy installs all the versions at once, so give
-   it a minute.
+4. PHP 8.1 or newer. The first deploy installs every released version at once —
+   a minute or two. If it ever gets cut short, add `--limit=15` and deploy again
+   until it settles; each run picks up where the last one stopped.
 
 Nothing needs a database, a queue, or a writable directory beyond `storage/`.
 
@@ -114,7 +115,7 @@ just visit the site's `.test` hostname.
 | `--install` | Build `vendor/` from the committed locks, probe each version, write the manifest. |
 | *(neither)* | Both, in order — the cron-friendly mode if you would rather not use CI. |
 | `--only=1.0.0,0.22.0` | Restrict to these versions. |
-| `--limit=5` | Lock at most this many new versions in one run. |
+| `--limit=5` | Install (or lock) at most this many new versions in one run, so a run that gets cut short resumes on the next one. |
 | `--reinstall` | Delete and rebuild matched versions. |
 | `--prune` | Remove local versions Packagist no longer lists. |
 | `--dry-run` | Say what would happen, change nothing. |

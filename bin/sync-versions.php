@@ -171,8 +171,9 @@ if ($versions === []) {
     exit(1);
 }
 
-$entries   = [];
-$installed = 0;
+$entries     = [];
+$installed   = 0;
+$installLimit = isset($options['limit']) ? max(0, (int) $options['limit']) : null;
 
 foreach ($versions as $version) {
     $directory = SVGTEST_VERSIONS_DIR . '/' . $version;
@@ -181,6 +182,14 @@ foreach ($versions as $version) {
     if (!is_file(VersionRegistry::autoloadPath($version))) {
         if ($dryRun) {
             $log(sprintf('  %-8s would be installed', $version));
+            continue;
+        }
+
+        // A first deploy installs every release at once. If that runs out of
+        // time, --limit lets the next deploy pick up where this one stopped
+        // rather than starting over.
+        if ($installLimit !== null && $installed >= $installLimit) {
+            $log(sprintf('  %-8s skipped (install limit reached)', $version));
             continue;
         }
 
