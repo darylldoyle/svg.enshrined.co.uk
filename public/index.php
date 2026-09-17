@@ -29,8 +29,8 @@ header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
 header(
     "Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; "
-    . "img-src 'self' data:; frame-src blob:; connect-src 'self'; object-src 'none'; "
-    . "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    . "img-src 'self' data:; frame-src 'self'; connect-src 'self'; object-src 'none'; "
+    . "base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 );
 
 /** Cache-bust assets on change without inventing a build step. */

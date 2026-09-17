@@ -40,7 +40,7 @@ final class Samples
         ],
         'clean-logo' => [
             'title'       => 'Clean file',
-            'description' => 'A legitimate SVG that should come back untouched.',
+            'description' => 'A legitimate SVG. Nothing is stripped — the only differences are reserialisation.',
         ],
     ];
 

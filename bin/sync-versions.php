@@ -231,6 +231,23 @@ if ($dryRun) {
     exit(0);
 }
 
+// With --only, versions this run did not touch keep whatever the manifest
+// already said about them rather than vanishing from the site.
+foreach (readManifestEntries() as $version => $entry) {
+    $alreadyHandled = false;
+
+    foreach ($entries as $handled) {
+        if ($handled['version'] === $version) {
+            $alreadyHandled = true;
+            break;
+        }
+    }
+
+    if (!$alreadyHandled) {
+        $entries[] = $entry;
+    }
+}
+
 usort($entries, static fn (array $a, array $b): int => version_compare((string) $b['version'], (string) $a['version']));
 
 $usable = array_values(array_filter($entries, static fn (array $e): bool => $e['installed'] && $e['compatible']));
@@ -404,13 +421,13 @@ function installVendor(string $composer, string $directory): array
         return ['ok' => false, 'output' => 'no composer.lock committed for this version'];
     }
 
+    // No --no-audit here: unlike `update`, the install command does not take it.
     $result = run([
         $composer,
         'install',
         '--no-dev',
         '--no-interaction',
         '--no-progress',
-        '--no-audit',
         '--ignore-platform-reqs',
         '--optimize-autoloader',
         '--working-dir=' . $directory,
@@ -571,6 +588,25 @@ function filterRequested(array $versions, array $options): array
     $only = array_map('trim', explode(',', (string) $options['only']));
 
     return array_values(array_intersect($versions, $only));
+}
+
+/** @return array<string,array<string,mixed>> */
+function readManifestEntries(): array
+{
+    if (!is_readable(MANIFEST_PATH)) {
+        return [];
+    }
+
+    $decoded = json_decode((string) file_get_contents(MANIFEST_PATH), true);
+    $indexed = [];
+
+    foreach ($decoded['versions'] ?? [] as $entry) {
+        if (is_array($entry) && isset($entry['version'])) {
+            $indexed[(string) $entry['version']] = $entry;
+        }
+    }
+
+    return $indexed;
 }
 
 /** @return array<string,array<string,mixed>> */

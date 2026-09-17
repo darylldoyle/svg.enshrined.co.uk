@@ -55,8 +55,6 @@
     var byVersion = {};
     boot.versions.forEach(function (v) { byVersion[v.version] = v; });
 
-    var blobUrls = [];
-
     /* --- Elements --------------------------------------------------------- */
 
     var el = {
@@ -433,7 +431,7 @@
         });
 
         clear(el.actions);
-        revokeBlobs();
+        pendingPreviews = [];
 
         var result = state.result;
 
@@ -712,9 +710,18 @@
         var track = make('div', 'diff__hscroll');
         var spacer = make('div', 'diff__hscroll-spacer');
 
-        // The diff is set in a monospace face, so one ch is one character and
-        // the widest line's width needs no measuring.
-        spacer.style.width = 'calc(' + widestLine + 'ch + 24px)';
+        // How far the track has to scroll is set by the widest line minus the
+        // width of one code cell -- not the width of the whole diff. In split
+        // view a cell is half the container less its line-number gutter, so the
+        // spacer has to be that much wider again for the track to overflow at
+        // all. The diff is monospace, so one ch is one character and none of
+        // this needs measuring.
+        var gutter = 52;
+        var cellPadding = 24;
+
+        spacer.style.width = state.diffMode === 'split'
+            ? 'calc(50% + ' + widestLine + 'ch + ' + (gutter + cellPadding) + 'px)'
+            : 'calc(' + widestLine + 'ch + ' + (gutter + cellPadding) + 'px)';
 
         track.appendChild(spacer);
         container.appendChild(track);
@@ -933,7 +940,10 @@
         }
 
         view.appendChild(grid);
+        flushPreviews();
     }
+
+    var previewSeq = 0;
 
     function previewPane(label, svg, note) {
         var pane = make('div', 'preview');
@@ -943,42 +953,50 @@
         pane.appendChild(head);
 
         var stage = make('div', 'preview__stage');
+
         var frame = document.createElement('iframe');
+        frame.name = 'preview-' + (++previewSeq);
         frame.setAttribute('sandbox', '');
         frame.setAttribute('referrerpolicy', 'no-referrer');
         frame.title = label + ' preview';
-        frame.src = previewUrl(svg);
+
         stage.appendChild(frame);
         pane.appendChild(stage);
-
         pane.appendChild(make('div', 'preview__note', note));
+
+        // The frame has to be in the document before a form can target it.
+        pendingPreviews.push({ name: frame.name, svg: svg });
 
         return pane;
     }
 
+    var pendingPreviews = [];
+
     /**
-     * The preview is deliberately paranoid: an opaque sandboxed frame, so no
-     * scripts and no access to this page, wrapped in a policy that blocks every
-     * outbound request. A payload that survives sanitizing still cannot run or
-     * phone home from in there.
+     * Hands each preview frame its SVG by posting to preview.php, so the frame
+     * loads a real response with its own security policy rather than inheriting
+     * this page's — which would strip the styles the SVG is meant to be drawn
+     * with. The frame stays sandboxed and script-free either way.
      */
-    function previewUrl(svg) {
-        var page = '<!doctype html><html><head><meta charset="utf-8">'
-            + '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data:; font-src data:">'
-            + '<style>html,body{margin:0;height:100%}'
-            + 'body{display:flex;align-items:center;justify-content:center;padding:12px;box-sizing:border-box}'
-            + 'svg{max-width:100%;max-height:100%;height:auto}</style>'
-            + '</head><body>' + svg + '</body></html>';
+    function flushPreviews() {
+        pendingPreviews.forEach(function (item) {
+            var form = document.createElement('form');
+            form.method = 'post';
+            form.action = 'preview.php';
+            form.target = item.name;
+            form.hidden = true;
 
-        var url = URL.createObjectURL(new Blob([page], { type: 'text/html' }));
-        blobUrls.push(url);
+            var field = document.createElement('textarea');
+            field.name = 'svg';
+            field.value = item.svg;
+            form.appendChild(field);
 
-        return url;
-    }
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+        });
 
-    function revokeBlobs() {
-        blobUrls.forEach(function (url) { URL.revokeObjectURL(url); });
-        blobUrls = [];
+        pendingPreviews = [];
     }
 
     /* --- Issues view ------------------------------------------------------ */

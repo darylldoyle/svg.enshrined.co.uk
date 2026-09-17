@@ -1,12 +1,10 @@
 {
+    "description": "Pinned install of enshrined/svg-sanitize 0.22.0 for the playground.",
     "require": {
         "enshrined/svg-sanitize": "0.22.0"
     },
     "config": {
-        "optimize-autoloader": true,
-        "audit": {
-            "abandoned": "ignore"
-        }
+        "optimize-autoloader": true
     },
     "minimum-stability": "stable"
 }
